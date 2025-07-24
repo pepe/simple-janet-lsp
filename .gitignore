@@ -1,0 +1,4 @@
+_build/
+bin/
+bundle/
+simple-janet-lsp/temp.janet
