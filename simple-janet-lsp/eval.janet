@@ -22,7 +22,9 @@
   (var result nil)
   (var par 0)
 
-  (each [pos char] (reverse (slice (pairs str) 0 pos))
+  (def rstr (try (reverse (slice (pairs str) 0 pos)) ([_] (break))))
+
+  (each [pos char] rstr
     (case (string/from-bytes char)
       ")" (++ par)
       "(" (-- par))
