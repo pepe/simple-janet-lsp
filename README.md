@@ -31,3 +31,18 @@ In my case, I can't get `jpm` or `janet-pm` to work, so I've manually installed 
 @echo off
 goto #_undefined_# 2>NUL || title %COMSPEC% & janet "path-to\simple-janet-lsp\init.janet" %*
 ```
+
+# Helix configuration
+
+To use with helix, add to your `language.toml` file:
+
+```toml
+[language-server]
+janet-lsp = { command = "janet-lsp", args = [""] }
+
+[[language]]
+name = "janet"
+language-servers = ["janet-lsp"]
+# If you have `spork` installed, you can add:
+# auto-format = true
+```
