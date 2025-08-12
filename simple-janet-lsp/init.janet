@@ -45,8 +45,23 @@
   (when-let [word (eval/word-at error-line char)]
     (put end :character (+ char (length word))))
 
-  (when (= (string/slice error-line (dec char) char) "(")
+  (def char-at-error (string/slice error-line (dec char) char))
+
+  (when (or (= char-at-error "(") (= char-at-error "["))
     (update start :character inc))
+
+  (defn word-range [word]
+    (def tup (eval/tuple-at text {"character" (dec char) "line" line}))
+    (def {:character char-pos :len len} (parser/sym-loc word tup))
+    (put start :character (+ (dec char) char-pos))
+    (put end :character (+ (dec char) char-pos len)))
+
+  (cond
+    (string/has-prefix? "unknown symbol" message)
+    (word-range (string/slice message 15))
+
+    (string/has-prefix? "could not find module" message)
+    (word-range (->> (string/slice message 22) (string/split ":") (first))))
 
   [{:range {:start start :end end} :message message :severity 1}])
 

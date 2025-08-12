@@ -1,46 +1,39 @@
 # From: https://github.com/CFiggers/janet-lsp/blob/ef025e2bdd948e7d616721f2c9b9de14fb4b6e10/src/parser.janet
 
 (import ./eval)
+(import ./utils)
 
-(defn- tagged-value
-  [tag]
+(defn- tagged-value [tag]
   (fn [x]
     {:tag tag :value x}))
 
-(defn- identifier-node
-  []
+(defn- identifier-node []
   (fn [line col index value end]
     (let [len (- end index)]
       {:value value :index index :len len :line line :col col})))
 
-(defn- tagged-node
-  [tag]
+(defn- tagged-node [tag]
   (fn [line col index value end]
     (let [len (- end index)]
       {:tag tag :value value :index index :len len :line line :col col})))
 
-(defn- concat-tagged-node
-  [tag]
+(defn- concat-tagged-node [tag]
   (fn [line col index value end]
     (let [len (- end index)]
       {:tag tag :value (apply array/concat value) :index index :len len :line line :col col})))
 
-(defn- even-slots
-  [ind]
+(defn- even-slots [ind]
   (map |(get $ 0) (partition 2 ind)))
 
-(defn- odd-slots
-  [ind]
+(defn- odd-slots [ind]
   (filter |(not (nil? $)) (map |(get $ 1) (partition 2 ind))))
 
-(defn- let-parsing
-  []
+(defn- let-parsing []
   (fn [x]
     @[{:tag :parameters :value (flatten (even-slots x))}
       {:tag :expr :value (flatten (odd-slots x))}]))
 
-(defn- wrap-position-capture
-  [inner]
+(defn- wrap-position-capture [inner]
   ~(* (line) (column) ($)
       ,inner
       ($)))
@@ -85,7 +78,7 @@
       :bdestruct (* "[" (any :ws) (any (* :symbol-parameter (any :ws))) "]")
       :pdestruct (* "(" (any :ws) (any (* :symbol-parameter (any :ws))) ")")
 
-      :table-binding (* (+ :token :string) (any :ws) :symbol-parameter (any :ws))
+      :table-binding (* (+ :token :string) (any :ws) :parameter (any :ws))
       :tdestruct (* "{" (any :ws) (any :table-binding) "}")
 
       :parameter (+ :symbol-parameter :bdestruct :pdestruct :tdestruct)
@@ -187,25 +180,21 @@
   [source]
   {:tag :top :value (peg/match parse-peg source)})
 
-(defn- get-value-for-tag
-  [tag node]
+(defn- get-value-for-tag [tag node]
   (if (= tag (get node :tag))
     (get node :value)
     @[]))
 
-(defn- get-defined-for-tag
-  [tag node]
+(defn- get-defined-for-tag [tag node]
   (let [value (get node :value)]
     (if (indexed? value)
       (catseq [v :in value] (get-value-for-tag tag v))
       @[])))
 
-(defn- get-fn-names
-  [node]
+(defn- get-fn-names [node]
   (array/concat (get-value-for-tag :fn node) (get-defined-for-tag :fn node)))
 
-(defn- collect-symbols
-  [heads]
+(defn- collect-symbols [heads]
   (let [parameters (catseq [head :in heads] (get-value-for-tag :parameters head))
         variables (catseq [head :in heads] (get-defined-for-tag :variables head))
         fn-names (catseq [head :in heads] (get-fn-names head))
@@ -216,8 +205,7 @@
 
 (varfn find-symbols-in-node [])
 
-(defn- before-node?
-  [pos node]
+(defn- before-node? [pos node]
   (when-let [index (get node :index)]
     (< pos index)))
 
@@ -241,8 +229,7 @@
                [heads syms] result]
         (array/join syms (collect-symbols heads))))))
 
-(defn- in-node?
-  [pos node]
+(defn- in-node? [pos node]
   (if-let [start (get node :index)
            end (+ start (get node :len))]
     (and (<= start pos)
@@ -254,29 +241,35 @@
       (get-syms-from-tree node pos)
       @[])))
 
-(defn- blank-source
-  [source start end]
+(defn- blank-source [source start end]
   (string
     (string/slice source 0 start)
     (string/repeat " " (- end start))
     (string/slice source end)))
 
-(defn- get-index [{"character" char-pos "line" line-pos} source]
-  (let [lines (string/split "\n" source)
-        pre-lines (array/slice lines 0 line-pos)
-        pre-index (sum (map (comp inc length) pre-lines))]
-    (+ pre-index char-pos)))
-
 (defn- get-blanked-source [{"character" char-pos "line" line-pos} source]
   (def line (get (string/split "\n" source) line-pos))
   (if-let [word (eval/word-at line char-pos)]
-    (let [word-end (get-index {"character" char-pos "line" line-pos} source)
+    (let [word-end (utils/get-index {"character" char-pos "line" line-pos} source)
           word-start (- word-end (length word))]
       (blank-source source word-start word-end))
     source))
 
 (defn get-syms-at-loc [loc source]
   (let [blanked-source (get-blanked-source loc source)
-        index (get-index loc source)
+        index (utils/get-index loc source)
         tree (make-tree blanked-source)]
     (get-syms-from-tree tree index)))
+
+(defn sym-loc [sym source]
+  (defn recur [nodes sym]
+    (if (empty? nodes)
+      nil
+      (let [tree (first nodes)
+            value (get tree :value)]
+        (if (and (not (indexed? value)) (= value sym))
+          {:character (dec (get tree :col)) :len (get tree :len)}
+          (recur (array/concat (if (indexed? value) value @[])
+                               (array/slice nodes 1))
+                 sym)))))
+  (recur @[(make-tree source)] sym))

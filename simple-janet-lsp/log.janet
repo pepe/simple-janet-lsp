@@ -1,6 +1,6 @@
 (import spork/rpc)
 
-(import ./eval)
+(import ./utils)
 
 (var- *log* nil)
 
@@ -23,4 +23,4 @@
     (:print *log* (string/format "%s %s = %P" (header "INFO") sym x))))
 
 (defmacro pp [x]
-  ~(,_pp ,(eval/tuple->string x) ,x))
+  ~(,_pp ,(utils/tuple->string x) ,x))

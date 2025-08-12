@@ -1,4 +1,5 @@
 (import ./flycheck)
+(import ./utils)
 
 # From: https://github.com/janet-lang/spork/blob/eb8ba6bd042f6beb66cbf5194ac171cfda98424e/spork/getline.janet#L14C1-L20C29
 (def- *word-at-peg*
@@ -35,17 +36,35 @@
 
   result)
 
-(defn tuple->string [tup]
-  (def buf @"")
-  (with-dyns [:out buf] (prinf "%q" tup))
-  buf)
+(defn tuple-at
+  "Expects the `loc` to be on either `(` or `[`. Meant to be used for diagnostics."
+  [source loc]
+  (def index (utils/get-index loc source))
+
+  (var par 0)
+  (var end index)
+
+  (def [open close]
+    (case (string/slice source index (inc index))
+      "(" ["(" ")"]
+      "[" ["[" "]"]
+      (break)))
+
+  (each char (string/slice source index)
+    (case (string/from-bytes char)
+      open (++ par)
+      close (-- par))
+    (when (zero? par) (break))
+    (++ end))
+
+  (string/slice source index (inc end)))
 
 (defn- eval-error-pat [pat]
   (peg/compile ~(some (+ (* (line) (column) ,pat) 1))))
 
 (defn- eval-error-loc [message text source]
   (if (string/has-prefix? "could not find module" message)
-    (-> (tuple->string source)
+    (-> (utils/tuple->string source)
         (eval-error-pat)
         (peg/match text))
     [1 1]))
