@@ -4,7 +4,7 @@
 # From: https://github.com/janet-lang/spork/blob/eb8ba6bd042f6beb66cbf5194ac171cfda98424e/spork/getline.janet#L14C1-L20C29
 (def- *word-at-peg*
   (peg/compile
-    ~{:symchar (+ (range "\x80\xff" "AZ" "az" "09") (set "!$%&*+-./:<?=>@^_"))
+    ~{:symchar (+ (range "\x80\xff" "AZ" "az" "09") (set "!$%&*+-./:<?=>@^_\"`"))
       :anchor (drop (cmt ($) ,|(= $ 0)))
       :cap (* (+ (> -1 (not :symchar)) :anchor) (* ($) '(some :symchar)))
       :recur (+ :cap (> -1 :recur))

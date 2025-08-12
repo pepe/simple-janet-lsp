@@ -120,6 +120,9 @@
   (def char (string/slice line (dec pos) pos))
   (def word (eval/word-at line pos))
 
+  (when (and word (some |(string/has-prefix? $ word) ["\"" ":" "`"]))
+    (break))
+
   (when-let [form (eval/form-at line pos)]
     (when (or (= form "import") (= form "use"))
       (write-response id :null)
