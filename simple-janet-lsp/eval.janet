@@ -57,7 +57,7 @@
     (when (zero? par) (break))
     (++ end))
 
-  (string/slice source index (inc end)))
+  (try (string/slice source index (inc end)) ([_] nil)))
 
 (defn- eval-error-pat [pat]
   (peg/compile ~(some (+ (* (line) (column) ,pat) 1))))

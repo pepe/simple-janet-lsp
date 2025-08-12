@@ -261,15 +261,30 @@
         tree (make-tree blanked-source)]
     (get-syms-from-tree tree index)))
 
-(defn sym-loc [sym source]
+(defn tuple-at [loc source]
+  (defn recur [nodes index]
+    (if (empty? nodes)
+      nil
+      (let [tree (first nodes)
+            value (get tree :value)]
+        (if (= (get tree :index) index)
+          tree
+          (recur (array/concat (if (indexed? value) value @[])
+                               (array/slice nodes 1))
+                 index)))))
+  (recur @[(make-tree source)] (utils/get-index loc source)))
+
+(defn sym-loc [sym tree]
   (defn recur [nodes sym]
     (if (empty? nodes)
       nil
       (let [tree (first nodes)
             value (get tree :value)]
         (if (and (not (indexed? value)) (= value sym))
-          {:character (dec (get tree :col)) :len (get tree :len)}
+          {:character (dec (get tree :col))
+           :line (get tree :line)
+           :len (get tree :len)}
           (recur (array/concat (if (indexed? value) value @[])
                                (array/slice nodes 1))
                  sym)))))
-  (recur @[(make-tree source)] sym))
+  (recur @[tree] sym))

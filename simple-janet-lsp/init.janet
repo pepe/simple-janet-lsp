@@ -38,8 +38,8 @@
 
 (defn new-diagnostic [{:location [line char] :message message} text]
   (def line (dec line))
-  (def start @{:line line :character (dec char)})
-  (def end @{:line line :character char})
+  (var start @{:line line :character (dec char)})
+  (var end @{:line line :character char})
   (def error-line (get (string/split "\n" text) line))
 
   (when-let [word (eval/word-at error-line char)]
@@ -51,10 +51,11 @@
     (update start :character inc))
 
   (defn word-range [word]
-    (def tup (eval/tuple-at text {"character" (dec char) "line" line}))
-    (def {:character char-pos :len len} (parser/sym-loc word tup))
-    (put start :character (+ (dec char) char-pos))
-    (put end :character (+ (dec char) char-pos len)))
+    (unless (or (= char-at-error "(") (= char-at-error "[")) (break))
+    (def tup (parser/tuple-at {"character" (dec char) "line" line} text))
+    (def {:character char-pos :line line-pos :len len} (parser/sym-loc word tup))
+    (set start {:character char-pos :line (dec line-pos)})
+    (set end {:character (+ char-pos len) :line (dec line-pos)}))
 
   (cond
     (string/has-prefix? "unknown symbol" message)
