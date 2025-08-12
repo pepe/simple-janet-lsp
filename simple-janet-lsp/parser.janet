@@ -85,7 +85,7 @@
       :bdestruct (* "[" (any :ws) (any (* :symbol-parameter (any :ws))) "]")
       :pdestruct (* "(" (any :ws) (any (* :symbol-parameter (any :ws))) ")")
 
-      :table-binding (* :token (any :ws) :symbol-parameter (any :ws))
+      :table-binding (* (+ :token :string) (any :ws) :symbol-parameter (any :ws))
       :tdestruct (* "{" (any :ws) (any :table-binding) "}")
 
       :parameter (+ :symbol-parameter :bdestruct :pdestruct :tdestruct)
