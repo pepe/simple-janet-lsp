@@ -203,7 +203,10 @@
 
   (def result
     (if doc
-      {:contents {:kind "markdown" :value doc}}
+      (let [[label & rest] (string/split "\n" doc)
+            rest (string/join rest "\n")
+            doc (string "```janet\n" label "\n```" rest)]
+        {:contents {:kind "markdown" :value doc}})
       :null))
 
   (write-response id result))
@@ -221,7 +224,10 @@
 
   (def result
     (if doc
-      {:signatures [{:label word :documentation {:kind "markdown" :value doc}}]}
+      (let [[label & rest] (string/split "\n" doc)
+            rest (string/triml (string/join rest "\n"))
+            documentation (if-not (empty? rest) {:kind "markdown" :value (string rest "\n.")})]
+        {:signatures [{:label label :documentation documentation}]})
       :null))
 
   (write-response id result))

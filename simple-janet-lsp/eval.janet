@@ -36,29 +36,6 @@
 
   result)
 
-(defn tuple-at
-  "Expects the `loc` to be on either `(` or `[`. Meant to be used for diagnostics."
-  [source loc]
-  (def index (utils/get-index loc source))
-
-  (var par 0)
-  (var end index)
-
-  (def [open close]
-    (case (string/slice source index (inc index))
-      "(" ["(" ")"]
-      "[" ["[" "]"]
-      (break)))
-
-  (each char (string/slice source index)
-    (case (string/from-bytes char)
-      open (++ par)
-      close (-- par))
-    (when (zero? par) (break))
-    (++ end))
-
-  (try (string/slice source index (inc end)) ([_] nil)))
-
 (defn- eval-error-pat [pat]
   (peg/compile ~(some (+ (* (line) (column) ,pat) 1))))
 
