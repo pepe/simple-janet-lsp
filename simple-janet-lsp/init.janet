@@ -11,10 +11,7 @@
 (defn get-message []
   (def content (file/read stdin :line))
   (unless (buffer? content) (break))
-  (def content-length
-    (-> content
-        (string/trim "Content-Length: \r\n")
-        (scan-number)))
+  (def content-length (scan-number (string/trim content "Content-Length: \r\n")))
   (file/read stdin :line)
   (json/decode (file/read stdin content-length)))
 
@@ -52,8 +49,10 @@
 
   (defn word-range [word]
     (unless (or (= char-at-error "(") (= char-at-error "[")) (break))
+
     (def tup (parser/tuple-at {"character" (dec char) "line" line} text))
     (def {:character char-pos :line line-pos :len len} (parser/sym-loc word tup))
+
     (set start {:character char-pos :line (dec line-pos)})
     (set end {:character (+ char-pos len) :line (dec line-pos)}))
 

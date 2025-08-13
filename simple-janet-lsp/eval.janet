@@ -41,9 +41,7 @@
 
 (defn- eval-error-loc [message text source]
   (if (string/has-prefix? "could not find module" message)
-    (-> (utils/tuple->string source)
-        (eval-error-pat)
-        (peg/match text))
+    (-> (utils/tuple->string source) (eval-error-pat) (peg/match text))
     [1 1]))
 
 (defn eval-file [filepath text]
