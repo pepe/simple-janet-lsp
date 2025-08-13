@@ -134,7 +134,7 @@
 
       :loop (/ ,(wrap-position-capture
                   ~(group (* "(" (any :ws)
-                             "loop" (some :ws)
+                             (+ "loop" "seq" "catseq" "tabseq") (some :ws)
                              "[" (any :ws)
                              (/ (group :parameter) ,(tagged-value :parameters)) (any :input)
                              "]"
