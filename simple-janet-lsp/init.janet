@@ -120,6 +120,7 @@
   (def word (eval/word-at line pos))
 
   (when (and word (some |(string/has-prefix? $ word) ["\"" ":" "`"]))
+    (write-response id :null)
     (break))
 
   (when-let [form (eval/form-at line pos)]
@@ -159,11 +160,11 @@
 
   (def local-bindings
     (if break-char-pos
-      (filter (fn [{:label l}] (has-prefix? l)) local-syms)
+      (filter |(has-prefix? ($ :label)) local-syms)
       local-syms))
 
   (def global-items (map to-item global-bindings))
-  (def local-items (map (fn [{:label l :kind k}] (to-item l k)) local-bindings))
+  (def local-items (map |(to-item ($ :label) ($ :kind)) local-bindings))
 
   (def all-items @[])
   (def seen @{})
