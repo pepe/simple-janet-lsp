@@ -134,7 +134,7 @@
 
       :loop (/ ,(wrap-position-capture
                   ~(group (* "(" (any :ws)
-                             (+ "loop" "seq" "catseq" "tabseq") (some :ws)
+                             (+ "loop" "seq" "catseq" "tabseq" "generate") (some :ws)
                              "[" (any :ws)
                              (/ (group :parameter) ,(tagged-value :parameters)) (any :input)
                              "]"
@@ -175,7 +175,7 @@
       :input (choice :non-form :form)
       :main (* (any :input))}))
 
-(defn- make-tree
+(defn make-tree
   "Turn a string of source code into an AST"
   [source]
   {:tag :top :value (peg/match parse-peg source)})
