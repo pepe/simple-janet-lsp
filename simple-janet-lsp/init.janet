@@ -53,8 +53,8 @@
     (def tup (parser/tuple-at {"character" (dec char) "line" line} text))
     (def {:character char-pos :line line-pos :len len} (parser/sym-loc word tup))
 
-    (set start {:character char-pos :line (dec line-pos)})
-    (set end {:character (+ char-pos len) :line (dec line-pos)}))
+    (set start {:character char-pos :line line-pos})
+    (set end {:character (+ char-pos len) :line line-pos}))
 
   (cond
     (string/has-prefix? "unknown symbol" message)

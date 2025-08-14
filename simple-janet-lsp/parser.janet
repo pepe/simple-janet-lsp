@@ -269,9 +269,10 @@
             value (get tree :value)]
         (if (= (get tree :index) index)
           tree
-          (recur (array/concat (if (indexed? value) value @[])
-                               (array/slice nodes 1))
-                 index)))))
+          (let [inner (if (indexed? value) value @[])
+                rest (array/slice nodes 1)
+                nodes (array/concat inner rest)]
+            (recur nodes index))))))
   (recur @[(make-tree source)] (utils/get-index loc source)))
 
 (defn sym-loc [sym tree]
@@ -282,9 +283,10 @@
             value (get tree :value)]
         (if (and (not (indexed? value)) (= value sym))
           {:character (dec (get tree :col))
-           :line (get tree :line)
+           :line (dec (get tree :line))
            :len (get tree :len)}
-          (recur (array/concat (if (indexed? value) value @[])
-                               (array/slice nodes 1))
-                 sym)))))
+          (let [inner (if (indexed? value) value @[])
+                rest (array/slice nodes 1)
+                nodes (array/concat inner rest)]
+            (recur nodes sym))))))
   (recur @[tree] sym))
