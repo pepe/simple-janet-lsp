@@ -4,6 +4,7 @@
 (import ./eval)
 (import ./log)
 (import ./parser)
+(import ./utils)
 
 (def *files* @{})
 (def *msgs* (ev/thread-chan 1000))
@@ -33,13 +34,13 @@
     (prin result)
     (flush)))
 
-(defn new-diagnostic [{:location [line char] :message message} text]
+(defn new-error-diagnostic [{:location [line char] :message message} text]
   (def line (dec line))
   (var start @{:line line :character (dec char)})
   (var end @{:line line :character char})
   (def error-line (get (string/split "\n" text) line))
 
-  (when-let [word (eval/word-at error-line char)]
+  (when-let [word (utils/word-at error-line char)]
     (put end :character (+ char (length word))))
 
   (def char-at-error (string/slice error-line (dec char) char))
@@ -51,10 +52,10 @@
     (unless (or (= char-at-error "(") (= char-at-error "[")) (break))
 
     (def tup (parser/tuple-at {"character" (dec char) "line" line} text))
-    (def {:character char-pos :line line-pos :len len} (parser/sym-loc word tup))
+    (def {:character char-pos :line line-pos} (parser/sym-loc word tup))
 
     (set start {:character char-pos :line line-pos})
-    (set end {:character (+ char-pos len) :line line-pos}))
+    (set end {:character (+ char-pos (length word)) :line line-pos}))
 
   (cond
     (string/has-prefix? "unknown symbol" message)
@@ -63,14 +64,23 @@
     (string/has-prefix? "could not find module" message)
     (word-range (->> (string/slice message 22) (string/split ":") (first))))
 
-  [{:range {:start start :end end} :message message :severity 1}])
+  @[{:range {:start start :end end} :message message :severity 1}])
+
+(defn new-warning-diagnostic [text]
+  (catseq [[var {:character char :line line}] :in (eval/file-warning-check text)
+           :let [message (string "unused variable " var)
+                 start {:character char :line line}
+                 end {:character (+ char (length var)) :line line}]]
+    {:range {:start start :end end} :message message :severity 2}))
 
 (defn update-files [uri text]
-  (let [[err env] (eval/eval-file uri text)
-        diagnostic (if err (new-diagnostic err text) [])]
+  (let [[err env] (eval/file-error-check uri text)
+        error-diagnostic (if err (new-error-diagnostic err text) @[])
+        warning-diagnostics (new-warning-diagnostic text)
+        diagnostics (array/concat error-diagnostic warning-diagnostics)]
     (put *files* uri @{:text text :env env})
     (write-notification "textDocument/publishDiagnostics"
-                        {:uri uri :diagnostics diagnostic})))
+                        {:uri uri :diagnostics diagnostics})))
 
 (defn update-diagnostics [msg]
   (let [uri (get-in msg ["params" "textDocument" "uri"])
@@ -117,13 +127,13 @@
   (def text (get file :text))
   (def line (get (string/split "\n" text) line))
   (def char (string/slice line (dec pos) pos))
-  (def word (eval/word-at line pos))
+  (def word (utils/word-at line pos))
 
   (when (and word (some |(string/has-prefix? $ word) ["\"" ":" "`"]))
     (write-response id :null)
     (break))
 
-  (when-let [form (eval/form-at line pos)]
+  (when-let [form (utils/form-at line pos)]
     (when (or (= form "import") (= form "use"))
       (write-response id :null)
       (break)))
@@ -201,7 +211,7 @@
   (def {"character" pos "line" line} (get-in msg ["params" "position"]))
 
   (def line (get (string/split "\n" text) line))
-  (def word (eval/word-at line (inc pos)))
+  (def word (utils/word-at line (inc pos)))
   (def doc (get-doc word env))
 
   (def result
@@ -222,7 +232,7 @@
   (def {"character" pos "line" line} (get-in msg ["params" "position"]))
 
   (def line (get (string/split "\n" text) line))
-  (def word (eval/form-at line pos))
+  (def word (utils/form-at line pos))
   (def doc (get-doc word env))
 
   (def result
