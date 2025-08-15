@@ -1,40 +1,11 @@
 (import ./flycheck)
+(import ./parser)
 (import ./utils)
-
-# From: https://github.com/janet-lang/spork/blob/eb8ba6bd042f6beb66cbf5194ac171cfda98424e/spork/getline.janet#L14C1-L20C29
-(def- *word-at-peg*
-  (peg/compile
-    ~{:symchar (+ (range "\x80\xff" "AZ" "az" "09") (set "!$%&*+-./:<?=>@^_\"`"))
-      :anchor (drop (cmt ($) ,|(= $ 0)))
-      :cap (* (+ (> -1 (not :symchar)) :anchor) (* ($) '(some :symchar)))
-      :recur (+ :cap (> -1 :recur))
-      :main (> -1 :recur)}))
 
 (def- *eof-peg*
   (peg/compile
     ~{:digit (/ (<- :d+) ,scan-number)
       :main (some (+ (* "opened at line " :digit ", column " :digit) 1))}))
-
-(defn word-at [str pos]
-  (if-let [[_ word] (try (peg/match *word-at-peg* str (inc pos)) ([_] nil))]
-    word))
-
-(defn form-at [str pos]
-  (var result nil)
-  (var par 0)
-
-  (def rstr (try (reverse (slice (pairs str) 0 pos)) ([_] (break))))
-
-  (each [pos char] rstr
-    (case (string/from-bytes char)
-      ")" (++ par)
-      "(" (-- par))
-
-    (when (neg? par)
-      (set result (word-at str (inc pos)))
-      (break)))
-
-  result)
 
 (defn- eval-error-pat [pat]
   (peg/compile ~(some (+ (* (line) (column) ,pat) 1))))
@@ -44,7 +15,7 @@
     (-> (utils/tuple->string source) (eval-error-pat) (peg/match text))
     [1 1]))
 
-(defn eval-file [filepath text]
+(defn file-error-check [filepath text]
   (var err nil)
   (def file-env (make-env root-env))
   (def filepath
@@ -90,6 +61,69 @@
   (merge-into module/cache old-modcache)
 
   [(get err :diagnostic) file-env])
+
+(defn- all-variables [tree]
+  (def variables @[])
+
+  (defn not-private-variable? [node]
+    (if (= (type node) :struct)
+      (not= (get node :tag) :def)
+      false))
+
+  (def nodes @[{:value (filter not-private-variable? (get tree :value))}])
+
+  (while (not (empty? nodes))
+    (def tree (array/pop nodes))
+    (def tag (get tree :tag))
+    (def value (get tree :value))
+
+    (when (or (= tag :variables) (= tag :parameters))
+      (array/push variables value))
+
+    (when (indexed? value)
+      (each val value (array/push nodes val))))
+
+  (defn special-param? [str]
+    (some |(= $ str) ["&opt" "&named" "&keys"]))
+
+  (->> (flatten variables)
+       (filter |(not (special-param? ($ :value))))
+       (map |[($ :value)
+              {:index ($ :index)
+               :line (dec ($ :line))
+               :character (dec ($ :col))}])))
+
+(defn- all-values [tree]
+  (def vals @{})
+  (def nodes @[tree])
+
+  (while (not (empty? nodes))
+    (def tree (array/pop nodes))
+    (def value (get tree :value))
+    (def index (get tree :index))
+
+    (unless (indexed? value)
+      (if-let [val (get vals value)]
+        (update vals value |(array/push $ index))
+        (put vals value @[index])))
+
+    (when (indexed? value)
+      (each val value (array/push nodes val))))
+
+  vals)
+
+(defn file-warning-check [source]
+  (def tree (parser/make-tree source))
+  (def variables (all-variables tree))
+  (def vals (all-values tree))
+
+  (defn used-variable? [[variable {:index index}]]
+    (let [indexes (get vals variable)]
+      (when-let [index (find-index |(= $ index) indexes)]
+        (array/remove indexes index))
+      (not (>= (length indexes) 1))))
+
+  (filter used-variable? variables))
 
 # (def [err env] (eval-file "simple-janet-lsp/init.janet" (slurp "simple-janet-lsp/init.janet")))
 # (def [err env] (eval-file "test/basic.janet" (slurp "test/basic.janet")))

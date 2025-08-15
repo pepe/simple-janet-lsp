@@ -1,6 +1,5 @@
 # From: https://github.com/CFiggers/janet-lsp/blob/ef025e2bdd948e7d616721f2c9b9de14fb4b6e10/src/parser.janet
 
-(import ./eval)
 (import ./utils)
 
 (defn- tagged-value [tag]
@@ -75,8 +74,8 @@
                      ,(identifier-node))
       :symbol-parameter (+ :identifier :non-identifier)
 
-      :bdestruct (* "[" (any :ws) (any (* :symbol-parameter (any :ws))) "]")
-      :pdestruct (* "(" (any :ws) (any (* :symbol-parameter (any :ws))) ")")
+      :bdestruct (* "[" (any :ws) (any (* :parameter (any :ws))) "]")
+      :pdestruct (* "(" (any :ws) (any (* :parameter (any :ws))) ")")
 
       :table-binding (* (+ :token :string) (any :ws) :parameter (any :ws))
       :tdestruct (* "{" (any :ws) (any :table-binding) "}")
@@ -117,6 +116,13 @@
                                (any :input)
                                ")")))
                  ,(tagged-node :lambda))
+
+      :def- (/ ,(wrap-position-capture
+                  ~(group (* "(" (any :ws)
+                             (+ "def-" "var-") (some :ws)
+                             (/ (group :parameter) ,(tagged-value :variables)) (any :input)
+                             ")")))
+               ,(tagged-node :def-))
 
       :def (/ ,(wrap-position-capture
                  ~(group (* "(" (any :ws)
@@ -166,7 +172,7 @@
                                :form)))
                  ,(tagged-node :rmform))
 
-      :form (choice :let :defn :lambda :def
+      :form (choice :let :defn :lambda :def- :def
                     :for-each :loop :rmform
                     :parray :barray :ptuple :btuple :table :struct
                     :buffer :string :long-buffer :long-string
@@ -249,7 +255,7 @@
 
 (defn- get-blanked-source [{"character" char-pos "line" line-pos} source]
   (def line (get (string/split "\n" source) line-pos))
-  (if-let [word (eval/word-at line char-pos)]
+  (if-let [word (utils/word-at line char-pos)]
     (let [word-end (utils/get-index {"character" char-pos "line" line-pos} source)
           word-start (- word-end (length word))]
       (blank-source source word-start word-end))
@@ -283,8 +289,7 @@
             value (get tree :value)]
         (if (and (not (indexed? value)) (= value sym))
           {:character (dec (get tree :col))
-           :line (dec (get tree :line))
-           :len (get tree :len)}
+           :line (dec (get tree :line))}
           (let [inner (if (indexed? value) value @[])
                 rest (array/slice nodes 1)
                 nodes (array/concat inner rest)]
