@@ -62,68 +62,78 @@
 
   [(get err :diagnostic) file-env])
 
-(defn- all-variables [tree]
-  (def variables @[])
-
-  (defn not-private-variable? [node]
-    (if (= (type node) :struct)
-      (not= (get node :tag) :def)
-      false))
-
-  (def nodes @[{:value (filter not-private-variable? (get tree :value))}])
-
-  (while (not (empty? nodes))
-    (def tree (array/pop nodes))
-    (def tag (get tree :tag))
-    (def value (get tree :value))
-
-    (when (or (= tag :variables) (= tag :parameters))
-      (array/push variables value))
-
-    (when (indexed? value)
-      (each val value (array/push nodes val))))
-
-  (defn special-param? [str]
-    (some |(= $ str) ["&opt" "&named" "&keys"]))
-
-  (->> (flatten variables)
-       (filter |(not (special-param? ($ :value))))
-       (map |[($ :value)
-              {:index ($ :index)
-               :line (dec ($ :line))
-               :character (dec ($ :col))}])))
-
-(defn- all-values [tree]
-  (def vals @{})
-  (def nodes @[tree])
-
-  (while (not (empty? nodes))
-    (def tree (array/pop nodes))
-    (def value (get tree :value))
-    (def index (get tree :index))
-
-    (unless (indexed? value)
-      (if-let [val (get vals value)]
-        (update vals value |(array/push $ index))
-        (put vals value @[index])))
-
-    (when (indexed? value)
-      (each val value (array/push nodes val))))
-
-  vals)
-
 (defn file-warning-check [source]
   (def tree (parser/make-tree source))
-  (def variables (all-variables tree))
-  (def vals (all-values tree))
 
-  (defn used-variable? [[variable {:index index}]]
-    (let [indexes (get vals variable)]
-      (when-let [index (find-index |(= $ index) indexes)]
-        (array/remove indexes index))
-      (not (>= (length indexes) 1))))
+  (def declared-symbols @[])
+  (def used-symbols @[])
+  (def scope-stack @[@[]])
 
-  (filter used-variable? variables))
+  (defn new-scope []
+    (array/push scope-stack @[]))
+
+  (defn exit-scope []
+    (array/pop scope-stack))
+
+  (defn declare-symbol [sym]
+    (array/push (last scope-stack) sym)
+    (array/push declared-symbols sym))
+
+  (defn use-symbol [name]
+    (var i (dec (length scope-stack)))
+    (while (>= i 0)
+      (when-let [scope (get scope-stack i)
+                 sym-index (find-index |(= ($ :value) name) scope)]
+        (array/push used-symbols (get scope sym-index))
+        (array/remove scope sym-index)
+        (break))
+      (-- i)))
+
+  (defn traverse [node &opt top?]
+    (if (struct? node)
+      (let [tag (get node :tag)]
+        (cond
+          (or (= tag :def) (= tag :def-))
+          (do
+            (when (or (= tag :def-) (and (not top?) (= tag :def)))
+              (declare-symbol (get-in node [:value 0 :value 0])))
+            (traverse (get-in node [:value 1])))
+
+          (or (= tag :defn) (= tag :defn-))
+          (do
+            (when (or (= tag :defn-) (and (not top?) (= tag :defn)))
+              (declare-symbol (get-in node [:value 0 :value 0])))
+            (new-scope)
+            (each param (get-in node [:value 1 :value] @[])
+              (if-not (some |(= (param :value) $) ["&opt" "&keys" "&named"])
+                (declare-symbol param)))
+            (each expr (slice (get node :value) 2)
+              (traverse expr))
+            (exit-scope))
+
+          (= tag :let)
+          (do
+            (new-scope)
+            (each param (get-in node [:value 0 :value])
+              (declare-symbol param))
+            (each expr (slice (get node :value) 1)
+              (traverse expr))
+            (exit-scope))
+
+          (let [node (get node :value)]
+            (if (string? node)
+              (use-symbol node)
+              (each val node
+                (traverse val))))))))
+
+  (each node (get tree :value)
+    (traverse node true))
+
+  (seq [sym :in declared-symbols
+        :unless (find |(= $ sym) used-symbols)]
+    {:character (dec (get sym :col))
+     :line (dec (get sym :line))
+     :value (get sym :value)}))
 
 # (def [err env] (eval-file "simple-janet-lsp/init.janet" (slurp "simple-janet-lsp/init.janet")))
 # (def [err env] (eval-file "test/basic.janet" (slurp "test/basic.janet")))

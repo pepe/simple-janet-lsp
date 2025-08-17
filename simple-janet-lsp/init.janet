@@ -67,7 +67,7 @@
   @[{:range {:start start :end end} :message message :severity 1}])
 
 (defn new-warning-diagnostic [text]
-  (catseq [[var {:character char :line line}] :in (eval/file-warning-check text)
+  (catseq [{:value var :character char :line line} :in (eval/file-warning-check text)
            :let [message (string "unused variable " var)
                  start {:character char :line line}
                  end {:character (+ char (length var)) :line line}]]
@@ -126,7 +126,6 @@
 
   (def text (get file :text))
   (def line (get (string/split "\n" text) line))
-  (def char (string/slice line (dec pos) pos))
   (def word (utils/word-at line pos))
 
   (when (and word (some |(string/has-prefix? $ word) ["\"" ":" "`"]))

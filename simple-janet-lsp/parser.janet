@@ -95,15 +95,25 @@
                             ")")))
               ,(concat-tagged-node :let))
 
+      :defn- (/ ,(wrap-position-capture
+                   ~(group (* "(" (any :ws)
+                              (+ "defn-" "defmacro-") (some :ws)
+                              (/ (group :identifier) ,(tagged-value :fn-)) (some :ws)
+                              (? (* (+ :string :long-string) (some :ws)))
+                              "[" (any :ws)
+                              (/ (group :parameters) ,(tagged-value :parameters))
+                              "]" (any :input)
+                              ")")))
+                ,(tagged-node :defn-))
+
       :defn (/ ,(wrap-position-capture
                   ~(group (* "(" (any :ws)
-                             (+ "defn-" "defn" "defmacro-" "defmacro") (some :ws)
+                             (+ "defn" "defmacro") (some :ws)
                              (/ (group :identifier) ,(tagged-value :fn)) (some :ws)
                              (? (* (+ :string :long-string) (some :ws)))
                              "[" (any :ws)
                              (/ (group :parameters) ,(tagged-value :parameters))
-                             "]" (some :ws)
-                             (any :input)
+                             "]" (any :input)
                              ")")))
                ,(tagged-node :defn))
 
@@ -172,7 +182,7 @@
                                :form)))
                  ,(tagged-node :rmform))
 
-      :form (choice :let :defn :lambda :def- :def
+      :form (choice :let :defn- :defn :lambda :def- :def
                     :for-each :loop :rmform
                     :parray :barray :ptuple :btuple :table :struct
                     :buffer :string :long-buffer :long-string

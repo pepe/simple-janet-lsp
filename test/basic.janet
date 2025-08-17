@@ -2,7 +2,7 @@
 
 (setdyn *pretty-format* "%P")
 
-(def source `(def- private-foo nil)(def public-bar nil)(var public-baz nil)(var- private-boo nil) (defn new-diagnostic [{:location [line char] :message message} text]
+(def source `(def- private-foo nil)(def public-bar nil)(var public-baz nil)(var- private-boo nil) (defn- new-diagnostic [{:location [line char] :message message} text]
   (def line (dec line))
   (def start @{:line line :character (dec char)})
   (def end @{:line line :character char})
@@ -37,71 +37,88 @@ foo
       (put seen label true)
       (array/push all-items item))
   [{:range {:start start :end end} :message message :severity 1}])`)
-# (def source (slurp "simple-janet-lsp/eval.janet"))
+(def source (slurp "simple-janet-lsp/eval.janet"))
 
+# (def source `(def top-level nil) (def- top-level-pri nil)(defn pub [[mmm {:foo fbar}]]) (defn- not-used [mmm])(defn- unused-private-fn [foo] (print mmm))(let [[foo1 foo2] nil] nil)(def [foo3 foo4])`)
+# (def source `(def foo nil) (print foo)(defn my-func [used unused] (print used)) (my-func nil nil)`)
+# (def source `(defn- used-func [unsed-par] (let [used nil unused nil] (let [ununused nil] (print used))))(used-func)`)
+# (def source `(def used nil) (print used)`)
+(def source `(defn my-func [my-var]
+  (def my-var my-var)
+  (print my-var))`)
 (def loc {"character" 0 "line" 0})
 
 (def tree (parser/make-tree source))
 
-(defn special-param? [str]
-  (some |(= $ str) ["&opt" "&named" "&keys"]))
+(defn file-warning-check [tree]
+  (def declared-symbols @[])
+  (def used-symbols @[])
+  (def scope-stack @[@[]])
 
-(defn all-variables [tree]
-  (def variables @[])
+  (defn new-scope []
+    (array/push scope-stack @[]))
 
-  (defn public-variable? [node]
-    (if (= (type node) :struct)
-      (not= (get node :tag) :def)
-      false))
+  (defn exit-scope []
+    (array/pop scope-stack))
 
-  (def nodes @[{:value (filter public-variable? (get tree :value))}])
+  (defn declare-symbol [sym]
+    (array/push (last scope-stack) sym)
+    (array/push declared-symbols sym))
 
-  (while (not (empty? nodes))
-    (def tree (array/pop nodes))
-    (def tag (get tree :tag))
-    (def value (get tree :value))
+  (defn use-symbol [name]
+    (var i (dec (length scope-stack)))
+    (while (>= i 0)
+      (when-let [scope (get scope-stack i)
+                 sym-index (find-index |(= ($ :value) name) scope)]
+        (array/push used-symbols (get scope sym-index))
+        (array/remove scope sym-index)
+        (break))
+      (-- i)))
 
-    (when (or (= tag :variables) (= tag :parameters))
-      (array/push variables value))
+  (defn traverse [node &opt top?]
+    (if (struct? node)
+      (let [tag (get node :tag)]
+        (cond
+          (or (= tag :def) (= tag :def-))
+          (do
+            (when (or (= tag :def-) (and (not top?) (= tag :def)))
+              (declare-symbol (get-in node [:value 0 :value 0])))
+            (traverse (get-in node [:value 1])))
 
-    (when (indexed? value)
-      (each val value (array/push nodes val))))
+          (or (= tag :defn) (= tag :defn-))
+          (do
+            (when (or (= tag :defn-) (and (not top?) (= tag :defn)))
+              (declare-symbol (get-in node [:value 0 :value 0])))
+            (new-scope)
+            (each param (get-in node [:value 1 :value] @[])
+              (if-not (some |(= (param :value) $) ["&opt" "&keys" "&named"])
+                (declare-symbol param)))
+            (each expr (slice (get node :value) 2)
+              (traverse expr))
+            (exit-scope))
 
-  (->> (flatten variables)
-       (filter |(not (special-param? ($ :value))))
-       (map |[($ :value)
-              {:index ($ :index)
-               :line (dec ($ :line))
-               :character (dec ($ :col))}])))
+          (= tag :let)
+          (do
+            (new-scope)
+            (each param (get-in node [:value 0 :value])
+              (declare-symbol param))
+            (each expr (slice (get node :value) 1)
+              (traverse expr))
+            (exit-scope))
 
-(defn all-values [tree]
-  (def vals @{})
-  (def nodes @[tree])
+          (let [node (get node :value)]
+            (if (string? node)
+              (use-symbol node)
+              (each val node
+                (traverse val))))))))
 
-  (while (not (empty? nodes))
-    (def tree (array/pop nodes))
-    (def value (get tree :value))
-    (def index (get tree :index))
+  (each node (get tree :value)
+    (traverse node true))
 
-    (unless (indexed? value)
-      (if-let [val (get vals value)]
-        (update vals value |(array/push $ index))
-        (put vals value @[index])))
+  (seq [sym :in declared-symbols
+        :unless (find |(= $ sym) used-symbols)]
+    {:character (dec (get sym :col))
+     :line (dec (get sym :line))
+     :value (get sym :value)}))
 
-    (when (indexed? value)
-      (each val value (array/push nodes val))))
-
-  vals)
-
-(def variables (all-variables tree))
-(def vals (all-values tree))
-
-(defn used-variable? [[variable {:index index}]]
-  (let [indexes (get vals variable)]
-    (when-let [index (find-index |(= $ index) indexes)]
-      (array/remove indexes index))
-    (not (>= (length indexes) 1))))
-# (pp variables)
-(pp tree)
-# (pp (filter used-variable? variables))
-
+(pp (file-warning-check tree))
