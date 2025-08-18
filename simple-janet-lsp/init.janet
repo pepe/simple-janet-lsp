@@ -8,6 +8,7 @@
 
 (def *files* @{})
 (def *msgs* (ev/thread-chan 1000))
+(def *new-lines* (if (= (os/which) :windows) "\n\n" "\r\n\r\n"))
 
 (defn get-message []
   (def content (file/read stdin :line))
@@ -17,20 +18,17 @@
   (json/decode (file/read stdin content-length)))
 
 (defn create-result [message]
-  (def new-lines (if (= (os/which) :windows) "\n\n" "\r\n\r\n"))
-  (string "Content-Length: " (length message) new-lines message))
+  (string "Content-Length: " (length message) *new-lines* message))
 
 (defn write-response [id result]
   (let [message (json/encode {:jsonrpc "2.0" :id id :result result})
         result (create-result message)]
-    # (log/info "Sending response: " result)
     (prin result)
     (flush)))
 
 (defn write-notification [method params]
   (let [message (json/encode {:jsonrpc "2.0" :method method :params params})
         result (create-result message)]
-    # (log/info "Sending notification: " result)
     (prin result)
     (flush)))
 

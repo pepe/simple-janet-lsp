@@ -87,10 +87,15 @@
     (array/push declared-symbols sym))
 
   (defn use-symbol [name]
-    (loop [i :down-to [(dec (length scope-stack)) 0]]
-      (when-let [sym (find |(= ($ :value) name) (reverse (get scope-stack i)))]
-        (put used-symbols sym true)
-        (break))))
+    (defn riter [ind]
+      (generate [i :down-to [(dec (length ind)) 0]] (get ind i)))
+
+    (prompt :return
+      (loop [scope :in (riter scope-stack)
+             sym :in (riter scope)
+             :when (= (get sym :value) name)
+             :after (return :return)]
+        (put used-symbols sym true))))
 
   (defn traverse [node &opt top?]
     (unless (struct? node) (break))
