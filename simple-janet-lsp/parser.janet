@@ -21,16 +21,17 @@
     (let [len (- end index)]
       {:tag tag :value (apply array/concat value) :index index :len len :line line :col col})))
 
-(defn- even-slots [ind]
+(defn even-slots [ind]
   (map |(get $ 0) (partition 2 ind)))
 
-(defn- odd-slots [ind]
+(defn odd-slots [ind]
   (filter |(not (nil? $)) (map |(get $ 1) (partition 2 ind))))
 
 (defn- let-parsing []
   (fn [x]
     @[{:tag :parameters :value (flatten (even-slots x))}
-      {:tag :expr :value (flatten (odd-slots x))}]))
+      {:tag :expr :value (flatten (odd-slots x))}
+      {:tag :raw-pairs :value x}]))
 
 (defn- wrap-position-capture [inner]
   ~(* (line) (column) ($)

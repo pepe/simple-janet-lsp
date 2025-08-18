@@ -138,7 +138,7 @@
       (break)))
 
   (def break-char-pos
-    (if word (max ;(mapcat |(string/find-all $ word) ["/" "-" "*"]))))
+    (if word (max-of (mapcat |(string/find-all $ word) ["/" "-" "*"]))))
 
   (def prefix
     (if break-char-pos (string/slice word 0 (inc break-char-pos))))

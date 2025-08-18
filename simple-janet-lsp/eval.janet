@@ -82,10 +82,8 @@
   (defn use-symbol [name]
     (var i (dec (length scope-stack)))
     (while (>= i 0)
-      (when-let [scope (get scope-stack i)
-                 sym-index (find-index |(= ($ :value) name) scope)]
-        (array/push used-symbols (get scope sym-index))
-        (array/remove scope sym-index)
+      (when-let [sym (find |(= ($ :value) name) (reverse (get scope-stack i)))]
+        (array/push used-symbols sym)
         (break))
       (-- i)))
 
@@ -95,28 +93,33 @@
         (cond
           (or (= tag :def) (= tag :def-))
           (do
+            (traverse (get-in node [:value 1]))
             (when (or (= tag :def-) (and (not top?) (= tag :def)))
-              (declare-symbol (get-in node [:value 0 :value 0])))
-            (traverse (get-in node [:value 1])))
+              (declare-symbol (get-in node [:value 0 :value 0]))))
 
           (or (= tag :defn) (= tag :defn-))
           (do
-            (when (or (= tag :defn-) (and (not top?) (= tag :defn)))
-              (declare-symbol (get-in node [:value 0 :value 0])))
             (new-scope)
             (each param (get-in node [:value 1 :value] @[])
               (if-not (some |(= (param :value) $) ["&opt" "&keys" "&named"])
                 (declare-symbol param)))
-            (each expr (slice (get node :value) 2)
+            (each expr (array/slice (get node :value) 2)
               (traverse expr))
-            (exit-scope))
+            (exit-scope)
+            (when (or (= tag :defn-) (and (not top?) (= tag :defn)))
+              (declare-symbol (get-in node [:value 0 :value 0]))))
 
           (= tag :let)
-          (do
+          (let [node (get node :value)
+                raw-pairs (get (first (array/slice node 2 3)) :value)
+                params (parser/even-slots raw-pairs)
+                exprs (parser/odd-slots raw-pairs)
+                expr-param-pairs (partition 2 (interleave exprs params))]
             (new-scope)
-            (each param (get-in node [:value 0 :value])
-              (declare-symbol param))
-            (each expr (slice (get node :value) 1)
+            (each [exprs params] expr-param-pairs
+              (each e exprs (traverse e))
+              (each p params (declare-symbol p)))
+            (each expr (array/slice node 3)
               (traverse expr))
             (exit-scope))
 
