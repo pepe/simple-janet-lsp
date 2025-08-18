@@ -35,15 +35,14 @@
     (flush)))
 
 (defn new-error-diagnostic [{:location [line char] :message message} text]
-  (def line (dec line))
-  (var start @{:line line :character (dec char)})
-  (var end @{:line line :character char})
+  (var start @{:line line :character char})
+  (var end @{:line line :character (inc char)})
   (def error-line (get (string/split "\n" text) line))
 
   (when-let [word (utils/word-at error-line char)]
-    (put end :character (+ char (length word))))
+    (put end :character (+ (inc char) (length word))))
 
-  (def char-at-error (string/slice error-line (dec char) char))
+  (def char-at-error (string/slice error-line char (inc char)))
 
   (when (or (= char-at-error "(") (= char-at-error "["))
     (update start :character inc))
@@ -51,7 +50,7 @@
   (defn word-range [word]
     (unless (or (= char-at-error "(") (= char-at-error "[")) (break))
 
-    (def tup (parser/tuple-at {"character" (dec char) "line" line} text))
+    (def tup (parser/tuple-at {"character" char "line" line} text))
     (def {:character char-pos :line line-pos} (parser/sym-loc word tup))
 
     (set start {:character char-pos :line line-pos})

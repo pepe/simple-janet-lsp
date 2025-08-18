@@ -4,7 +4,7 @@
 
 (def- *eof-peg*
   (peg/compile
-    ~{:digit (/ (<- :d+) ,scan-number)
+    ~{:digit (/ (<- :d+) ,(comp dec scan-number))
       :main (some (+ (* "opened at line " :digit ", column " :digit) 1))}))
 
 (defn- eval-error-pat [pat]
@@ -12,8 +12,9 @@
 
 (defn- eval-error-loc [message text source]
   (if (string/has-prefix? "could not find module" message)
-    (-> (utils/tuple->string source) (eval-error-pat) (peg/match text))
-    [1 1]))
+    (let [loc (-> (utils/tuple->string source) (eval-error-pat) (peg/match text))]
+      (map dec loc))
+    [0 0]))
 
 (defn file-error-check [filepath text]
   (var err nil)
@@ -34,17 +35,23 @@
   (defn evaluator [thunk source env where]
     (unless err
       (match (protect (flycheck/flycheck-evaluator thunk source env where))
-        [false e] (set err {:type :eval :diagnostic {:message e :location (eval-error-loc e text source)}}))))
+        [false e] (set err {:type :eval
+                            :diagnostic {:message e
+                                         :location (eval-error-loc e text source)}}))))
 
   (defn on-compile-error [msg _ _ line col]
-    (unless err (set err {:type :compile :diagnostic {:message msg :location [line col]}})))
+    (unless err (set err {:type :compile
+                          :diagnostic {:message msg
+                                       :location [(dec line) (dec col)]}})))
 
   (defn on-parse-error [p _]
     (let [message (parser/error p)
           eof (peg/match *eof-peg* message)
           location (if-not (empty? eof) eof (parser/where p))]
       (unless (= (get err :type) :parse)
-        (set err {:type :parse :diagnostic {:message message :location location}}))))
+        (set err {:type :parse
+                  :diagnostic {:message message
+                               :location (map location dec)}}))))
 
   (def old-modcache (table/clone module/cache))
   (table/clear module/cache)
@@ -134,8 +141,8 @@
 
   (seq [sym :in declared-symbols
         :unless (find |(= $ sym) used-symbols)]
-    {:character (dec (get sym :col))
-     :line (dec (get sym :line))
+    {:character (get sym :col)
+     :line (get sym :line)
      :value (get sym :value)}))
 
 # (def [err env] (eval-file "simple-janet-lsp/init.janet" (slurp "simple-janet-lsp/init.janet")))

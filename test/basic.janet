@@ -8,17 +8,15 @@
 # (def source `(def top-level nil) (def- top-level-pri nil)(defn pub [[mmm {:foo fbar}]]) (defn- not-used [mmm])(defn- unused-private-fn [foo] (print mmm))(let [[foo1 foo2] nil] nil)(def [foo3 foo4])`)
 # (def source `(def foo nil) (print foo)(defn my-func [used unused] (print used)) (my-func nil nil)`)
 # (def source `(defn- used-func [unsed-par] (let [used nil unused nil] (let [ununused nil] (print used))))(used-func)`)
-(def source ````(defn foo []
-  (let [[label & rest] (string/split "\n" doc)
-        rest (string/join rest "\n")
-        doc (string "```janet\n" label "\n```" rest)]
-    (print doc)
-    (pp rest)))````)
+(def source `(def foo nil)
+  (def bar nil)`)
 # (def source `(let [[x y] nil
 #       z nil
 #       [m n] nil]
 #   (print x y z))`)
+(def loc {"character" 2 "line" 1})
 (def tree (parser/make-tree source))
+(pp (parser/tuple-at loc source))
 
 (defn file-warning-check [tree]
   (def declared-symbols @[])
@@ -94,6 +92,6 @@
      :line (dec (get sym :line))
      :value (get sym :value)}))
 
-(pp (file-warning-check tree))
+# (pp (file-warning-check tree))
 # (pp tree)
 

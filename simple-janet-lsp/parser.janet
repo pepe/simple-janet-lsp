@@ -34,7 +34,7 @@
       {:tag :raw-pairs :value x}]))
 
 (defn- wrap-position-capture [inner]
-  ~(* (line) (column) ($)
+  ~(* (/ (line) ,dec) (/ (column) ,dec) ($)
       ,inner
       ($)))
 
@@ -299,8 +299,8 @@
       (let [tree (first nodes)
             value (get tree :value)]
         (if (and (not (indexed? value)) (= value sym))
-          {:character (dec (get tree :col))
-           :line (dec (get tree :line))}
+          {:character (get tree :col)
+           :line (get tree :line)}
           (let [inner (if (indexed? value) value @[])
                 rest (array/slice nodes 1)
                 nodes (array/concat inner rest)]
