@@ -44,9 +44,6 @@
 
   (def char-at-error (string/slice error-line char (inc char)))
 
-  (when (or (= char-at-error "(") (= char-at-error "["))
-    (update start :character inc))
-
   (defn word-range [word]
     (unless (or (= char-at-error "(") (= char-at-error "[")) (break))
 

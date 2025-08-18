@@ -47,11 +47,11 @@
   (defn on-parse-error [p _]
     (let [message (parser/error p)
           eof (peg/match *eof-peg* message)
-          location (if-not (empty? eof) eof (parser/where p))]
+          location (if-not (empty? eof) eof (map dec (parser/where p)))]
       (unless (= (get err :type) :parse)
         (set err {:type :parse
                   :diagnostic {:message message
-                               :location (map location dec)}}))))
+                               :location location}}))))
 
   (def old-modcache (table/clone module/cache))
   (table/clear module/cache)
@@ -73,7 +73,7 @@
   (def tree (parser/make-tree source))
 
   (def declared-symbols @[])
-  (def used-symbols @[])
+  (def used-symbols @{})
   (def scope-stack @[@[]])
 
   (defn new-scope []
@@ -90,7 +90,7 @@
     (var i (dec (length scope-stack)))
     (while (>= i 0)
       (when-let [sym (find |(= ($ :value) name) (reverse (get scope-stack i)))]
-        (array/push used-symbols sym)
+        (put used-symbols sym true)
         (break))
       (-- i)))
 
@@ -140,7 +140,7 @@
     (traverse node true))
 
   (seq [sym :in declared-symbols
-        :unless (find |(= $ sym) used-symbols)]
+        :unless (get used-symbols sym)]
     {:character (get sym :col)
      :line (get sym :line)
      :value (get sym :value)}))
