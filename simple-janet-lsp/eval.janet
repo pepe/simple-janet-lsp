@@ -87,60 +87,57 @@
     (array/push declared-symbols sym))
 
   (defn use-symbol [name]
-    (var i (dec (length scope-stack)))
-    (while (>= i 0)
+    (loop [i :down-to [(dec (length scope-stack)) 0]]
       (when-let [sym (find |(= ($ :value) name) (reverse (get scope-stack i)))]
         (put used-symbols sym true)
-        (break))
-      (-- i)))
+        (break))))
 
   (defn traverse [node &opt top?]
-    (if (struct? node)
-      (let [tag (get node :tag)]
-        (cond
-          (or (= tag :def) (= tag :def-))
-          (do
-            (traverse (get-in node [:value 1]))
-            (when (or (= tag :def-) (and (not top?) (= tag :def)))
-              (declare-symbol (get-in node [:value 0 :value 0]))))
+    (unless (struct? node) (break))
 
-          (or (= tag :defn) (= tag :defn-))
-          (do
-            (new-scope)
-            (each param (get-in node [:value 1 :value] @[])
-              (if-not (some |(= (param :value) $) ["&opt" "&keys" "&named"])
-                (declare-symbol param)))
-            (each expr (array/slice (get node :value) 2)
-              (traverse expr))
-            (exit-scope)
-            (when (or (= tag :defn-) (and (not top?) (= tag :defn)))
-              (declare-symbol (get-in node [:value 0 :value 0]))))
+    (match (get node :tag)
+      (tag (or (= tag :def) (= tag :def-)))
+      (do
+        (traverse (get-in node [:value 1]))
+        (when (or (= tag :def-) (and (not top?) (= tag :def)))
+          (declare-symbol (get-in node [:value 0 :value 0]))))
 
-          (= tag :let)
-          (let [node (get node :value)
-                raw-pairs (get (first (array/slice node 2 3)) :value)
-                params (parser/even-slots raw-pairs)
-                exprs (parser/odd-slots raw-pairs)
-                expr-param-pairs (partition 2 (interleave exprs params))]
-            (new-scope)
-            (each [exprs params] expr-param-pairs
-              (each e exprs (traverse e))
-              (each p params (declare-symbol p)))
-            (each expr (array/slice node 3)
-              (traverse expr))
-            (exit-scope))
+      (tag (or (= tag :defn) (= tag :defn-)))
+      (do
+        (new-scope)
+        (each param (get-in node [:value 1 :value] @[])
+          (if-not (some |(= (param :value) $) ["&opt" "&keys" "&named"])
+            (declare-symbol param)))
+        (each expr (array/slice (get node :value) 2)
+          (traverse expr))
+        (exit-scope)
+        (when (or (= tag :defn-) (and (not top?) (= tag :defn)))
+          (declare-symbol (get-in node [:value 0 :value 0]))))
 
-          (let [node (get node :value)]
-            (if (string? node)
-              (use-symbol node)
-              (each val node
-                (traverse val))))))))
+      :let
+      (let [node (get node :value)
+            raw-pairs (get (first (array/slice node 2 3)) :value)
+            params (parser/even-slots raw-pairs)
+            exprs (parser/odd-slots raw-pairs)
+            expr-param-pairs (partition 2 (interleave exprs params))]
+        (new-scope)
+        (each [exprs params] expr-param-pairs
+          (each e exprs (traverse e))
+          (each p params (declare-symbol p)))
+        (each expr (array/slice node 3)
+          (traverse expr))
+        (exit-scope))
 
-  (each node (get tree :value)
-    (traverse node true))
+      _
+      (let [node (get node :value)]
+        (if (string? node)
+          (use-symbol node)
+          (each val node
+            (traverse val))))))
 
-  (seq [sym :in declared-symbols
-        :unless (get used-symbols sym)]
+  (each node (get tree :value) (traverse node true))
+
+  (seq [sym :in declared-symbols :unless (get used-symbols sym)]
     {:character (get sym :col)
      :line (get sym :line)
      :value (get sym :value)}))
