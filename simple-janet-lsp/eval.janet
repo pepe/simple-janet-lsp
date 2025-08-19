@@ -142,7 +142,8 @@
 
   (each node (get tree :value) (traverse node true))
 
-  (seq [sym :in declared-symbols :unless (get used-symbols sym)]
+  (seq [sym :in declared-symbols
+        :unless (get used-symbols sym)]
     {:character (get sym :col)
      :line (get sym :line)
      :value (get sym :value)}))

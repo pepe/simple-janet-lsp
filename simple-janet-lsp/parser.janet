@@ -33,6 +33,17 @@
       {:tag :expr :value (flatten (odd-slots x))}
       {:tag :raw-pairs :value x}]))
 
+(defn- loop-let-parsing []
+  (fn [x]
+    {:tag :loop-let
+     :value @[{:tag :parameters :value (flatten (even-slots x))}
+              {:tag :expr :value (flatten (odd-slots x))}
+              {:tag :raw-pairs :value x}]}))
+
+(defn- loop-prefix-parsing []
+  (fn [x]
+    {:tag :loop-modifiers :value x}))
+
 (defn- wrap-position-capture [inner]
   ~(* (/ (line) ,dec) (/ (column) ,dec) ($)
       ,inner
@@ -149,15 +160,31 @@
                                  ")")))
                    ,(tagged-node :for-each))
 
+      :loop-verbs (+ ":in" ":keys" ":pairs" ":range" ":range-to" ":down" ":down-to" ":iterate")
+      :loop-infix (* (group :parameter) (some :ws) :loop-verbs (some :ws) (group :form) (any :ws))
+
+      :loop-modifiers (+ ":while" ":until" ":before" ":after" ":repeat" ":when" ":unless")
+      :loop-prefix (* :loop-modifiers (some :ws) (group :form) (any :ws))
+
+      :loop-let (* ":let" (some :ws)
+                   "[" (any :ws)
+                   (/ (group (any :let-binding)) ,(loop-let-parsing))
+                   "]" (any :ws))
+
+      :loop-head (* (any (+ :loop-let
+                            (/ (group :loop-prefix) ,(loop-prefix-parsing))
+                            (/ (group :loop-infix) ,(loop-let-parsing))))
+                    (any :ws))
+
       :loop (/ ,(wrap-position-capture
                   ~(group (* "(" (any :ws)
                              (+ "loop" "seq" "catseq" "tabseq" "generate") (some :ws)
                              "[" (any :ws)
-                             (/ (group :parameter) ,(tagged-value :parameters)) (any :input)
+                             (group :loop-head) (any :input)
                              "]"
                              (any :input)
                              ")")))
-               ,(tagged-node :loop))
+               ,(concat-tagged-node :loop))
 
       :ptuple (/ ,(wrap-position-capture
                     ~(group (* "(" (any :input) ")")))
@@ -255,7 +282,12 @@
 (varfn find-symbols-in-node [node pos]
   (when (in-node? pos node)
     (if (indexed? (get node :value))
-      (get-syms-from-tree node pos)
+      (if (= (get node :tag) :loop)
+        (let [node (->> (get node :value)
+                        (filter |(= ($ :tag) :loop-let))
+                        (mapcat |($ :value)))]
+          (get-syms-from-tree {:value node} pos))
+        (do (pp node) (get-syms-from-tree node pos)))
       @[])))
 
 (defn- blank-source [source start end]
