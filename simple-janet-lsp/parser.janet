@@ -287,7 +287,7 @@
                         (filter |(= ($ :tag) :loop-let))
                         (mapcat |($ :value)))]
           (get-syms-from-tree {:value node} pos))
-        (do (pp node) (get-syms-from-tree node pos)))
+        (get-syms-from-tree node pos))
       @[])))
 
 (defn- blank-source [source start end]
