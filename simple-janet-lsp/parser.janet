@@ -50,7 +50,7 @@
 (def- parse-peg
   "PEG to extract identifier symbols and locations"
   (peg/compile
-    ~{:ws (+ (set " \t\r\f\0\v\n"))
+    ~{:ws (+ :comment (set " \t\r\f\0\v\n"))
       :readermac (set "';~,|")
       :symchars (+ :w "\x80\xFF" (set "!$%&*+-./:<?=>@^_"))
       :token (some :symchars)
@@ -58,7 +58,7 @@
                          (* "x" :h :h)
                          (* "u" :h :h :h :h)
                          (* "U" :h :h :h :h :h :h)))
-      :comment (* "#" '(any (if-not (+ "\n" -1) 1)) (+ "\n" -1))
+      :comment (* "#" (any (if-not (+ "\n" -1) 1)) (+ "\n" -1))
       :span (/ ,(wrap-position-capture
                   ~(<- :token))
                ,(identifier-node))
