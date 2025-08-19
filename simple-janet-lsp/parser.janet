@@ -29,16 +29,14 @@
 
 (defn- let-parsing []
   (fn [x]
-    @[{:tag :parameters :value (flatten (even-slots x))}
-      {:tag :expr :value (flatten (odd-slots x))}
-      {:tag :raw-pairs :value x}]))
+    @[{:tag :parameters :value (even-slots x)}
+      {:tag :expr :value (odd-slots x)}]))
 
 (defn- loop-let-parsing []
   (fn [x]
     {:tag :loop-let
-     :value @[{:tag :parameters :value (flatten (even-slots x))}
-              {:tag :expr :value (flatten (odd-slots x))}
-              {:tag :raw-pairs :value x}]}))
+     :value @[{:tag :parameters :value (even-slots x)}
+              {:tag :expr :value (odd-slots x)}]}))
 
 (defn- loop-prefix-parsing []
   (fn [x]
@@ -239,7 +237,7 @@
   (array/concat (get-value-for-tag :fn node) (get-defined-for-tag :fn node)))
 
 (defn- collect-symbols [heads]
-  (let [parameters (catseq [head :in heads] (get-value-for-tag :parameters head))
+  (let [parameters (catseq [head :in heads] (flatten (get-value-for-tag :parameters head)))
         variables (catseq [head :in heads] (get-defined-for-tag :variables head))
         fn-names (catseq [head :in heads] (get-fn-names head))
         pars-and-vars (array/concat parameters variables)
@@ -318,7 +316,7 @@
             value (get tree :value)]
         (if (= (get tree :index) index)
           tree
-          (let [inner (if (indexed? value) value @[])
+          (let [inner (if (indexed? value) (flatten value) @[])
                 rest (array/slice nodes 1)
                 nodes (array/concat inner rest)]
             (recur nodes index))))))
@@ -333,7 +331,7 @@
         (if (and (not (indexed? value)) (= value sym))
           {:character (get tree :col)
            :line (get tree :line)}
-          (let [inner (if (indexed? value) value @[])
+          (let [inner (if (indexed? value) (flatten value) @[])
                 rest (array/slice nodes 1)
                 nodes (array/concat inner rest)]
             (recur nodes sym))))))

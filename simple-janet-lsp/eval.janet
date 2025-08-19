@@ -121,16 +121,35 @@
 
       :let
       (let [node (get node :value)
-            raw-pairs (get (first (array/slice node 2 3)) :value)
-            params (parser/even-slots raw-pairs)
-            exprs (parser/odd-slots raw-pairs)
-            expr-param-pairs (partition 2 (interleave exprs params))]
+            params (get (first node) :value)
+            exprs (get (get node 1) :value)
+            pairs-param-expr (partition 2 (interleave params exprs))]
         (new-scope)
-        (each [exprs params] expr-param-pairs
+        (each [params exprs] pairs-param-expr
           (each e exprs (traverse e))
           (each p params (declare-symbol p)))
-        (each expr (array/slice node 3)
+        (each expr (array/slice node 2)
           (traverse expr))
+        (exit-scope))
+
+      :loop
+      (do
+        (new-scope)
+        (each n (get node :value)
+          (case (get n :tag)
+            :loop-let
+            (let [node (get n :value)
+                  params (get (first node) :value)
+                  exprs (get (get node 1) :value)
+                  pairs-param-expr (partition 2 (interleave params exprs))]
+              (each [params exprs] pairs-param-expr
+                (each e exprs (traverse e))
+                (each p params (declare-symbol p))))
+
+            :loop-modifiers
+            (each n (get n :value) (traverse (first n)))
+
+            (traverse n)))
         (exit-scope))
 
       _
