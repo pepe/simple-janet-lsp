@@ -43,7 +43,7 @@
   (def char-at-error (string/slice error-line char (inc char)))
 
   (defn word-range [word]
-    (unless (or (= char-at-error "(") (= char-at-error "[")) (break))
+    (unless (some |(= $ char-at-error) ["(" "[" "'" ";" "~" "," "|"]) (break))
 
     (def tup (parser/tuple-at {"character" char "line" line} text))
     (def {:character char-pos :line line-pos} (parser/sym-loc word tup))
