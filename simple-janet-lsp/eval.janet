@@ -120,44 +120,46 @@
           (declare-symbol (get-in node [:value 0 :value 0]))))
 
       :let
-      (let [node (get node :value)
-            params (get (first node) :value)
-            exprs (get (get node 1) :value)
-            pairs-param-expr (partition 2 (interleave params exprs))]
+      (let [[{:value params} {:value exprs} & rest] (get node :value)
+            param-expr-pairs (map tuple params exprs)]
         (new-scope)
-        (each [params exprs] pairs-param-expr
-          (each e exprs (traverse e))
-          (each p params (declare-symbol p)))
-        (each expr (array/slice node 2)
-          (traverse expr))
+        (each [params exprs] param-expr-pairs
+          (map traverse exprs)
+          (map declare-symbol params))
+        (map traverse rest)
+        (exit-scope))
+
+      :for-each
+      (do
+        (new-scope)
+        (let [[{:value params} & rest] (get node :value)]
+          (map declare-symbol params)
+          (map traverse rest))
         (exit-scope))
 
       :loop
       (do
         (new-scope)
-        (each n (get node :value)
-          (case (get n :tag)
+        (each node (get node :value)
+          (case (get node :tag)
             :loop-let
-            (let [node (get n :value)
-                  params (get (first node) :value)
-                  exprs (get (get node 1) :value)
-                  pairs-param-expr (partition 2 (interleave params exprs))]
-              (each [params exprs] pairs-param-expr
-                (each e exprs (traverse e))
-                (each p params (declare-symbol p))))
+            (let [[{:value params} {:value exprs}] (get node :value)
+                  param-expr-pairs (map tuple params exprs)]
+              (each [params exprs] param-expr-pairs
+                (map traverse exprs)
+                (map declare-symbol params)))
 
             :loop-modifiers
-            (each n (get n :value) (traverse (first n)))
+            (map (comp traverse first) (get node :value))
 
-            (traverse n)))
+            (traverse node)))
         (exit-scope))
 
       _
       (let [node (get node :value)]
         (if (string? node)
           (use-symbol node)
-          (each val node
-            (traverse val))))))
+          (map traverse node)))))
 
   (each node (get tree :value) (traverse node true))
 
