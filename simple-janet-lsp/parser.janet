@@ -118,7 +118,7 @@
 
       :defn (/ ,(wrap-position-capture
                   ~(group (* "(" (any :ws)
-                             (+ "defn" "defmacro") (some :ws)
+                             (+ "defn" "defmacro" "varfn") (some :ws)
                              (/ (group :identifier) ,(tagged-value :fn)) (some :ws)
                              (? (* (+ :string :long-string) (some :ws)))
                              "[" (any :ws)
