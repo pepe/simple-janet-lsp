@@ -8,12 +8,11 @@
       :main (some (+ (* "opened at line " :digit ", column " :digit) 1))}))
 
 (defn- eval-error-pat [pat]
-  (peg/compile ~(some (+ (* (line) (column) ,pat) 1))))
+  (peg/compile ~(some (+ (* (/ (line) ,dec) (/ (column) ,dec) ,pat) 1))))
 
 (defn- eval-error-loc [message text source]
   (if (string/has-prefix? "could not find module" message)
-    (let [loc (-> (utils/tuple->string source) (eval-error-pat) (peg/match text))]
-      (map dec loc))
+    (-> (utils/tuple->string source) (eval-error-pat) (peg/match text))
     [0 0]))
 
 (defn file-error-check [filepath text]
@@ -90,12 +89,10 @@
     (defn riter [ind]
       (generate [i :down-to [(dec (length ind)) 0]] (get ind i)))
 
-    (prompt :return
-      (loop [scope :in (riter scope-stack)
-             sym :in (riter scope)
-             :when (= (get sym :value) name)
-             :after (return :return)]
-        (put used-symbols sym true))))
+    (each scope (riter scope-stack)
+      (when-let [sym (find |(= ($ :value) name) (riter scope))]
+        (put used-symbols sym true)
+        (break))))
 
   (defn traverse [node &opt top?]
     (unless (struct? node) (break))
