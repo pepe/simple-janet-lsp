@@ -179,7 +179,7 @@
     (put seen label true)
     (array/push all-items item))
 
-  (write-response id {:isIncomplete true :items all-items}))
+  (write-response id {:isIncomplete false :items all-items}))
 
 (defn get-doc [binding env]
   (get-in env [(symbol binding) :doc]))
@@ -271,7 +271,6 @@
   (ev/spawn-thread (forever (ev/give *msgs* [:lsp-message (get-message)])))
 
   (loop [message :iterate (ev/take *msgs*)]
-    # (log/pp message)
     (match message
       [:lsp-message msg]
       (let [id (get msg "id")]
