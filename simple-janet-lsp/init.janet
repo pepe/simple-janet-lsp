@@ -8,7 +8,6 @@
 
 (def *files* @{})
 (def *msgs* (ev/thread-chan 1000))
-(def *new-lines* (if (= (os/which) :windows) "\n\n" "\r\n\r\n"))
 
 (defn get-message []
   (def content (file/read stdin :line))
@@ -16,6 +15,8 @@
   (def content-length (scan-number (string/trim content "Content-Length: \r\n")))
   (file/read stdin :line)
   (json/decode (file/read stdin content-length)))
+
+(def *new-lines* (if (= (os/which) :windows) "\n\n" "\r\n\r\n"))
 
 (defn create-result [message]
   (string "Content-Length: " (length message) *new-lines* message))
@@ -111,6 +112,8 @@
     (when-let [file (get *files* uri)]
       (put file :text text))))
 
+(var *editor* nil)
+
 (defn completion [id msg]
   (def uri (get-in msg ["params" "textDocument" "uri"]))
   (def file (get *files* uri))
@@ -132,7 +135,8 @@
       (break)))
 
   (def break-char-pos
-    (if word (max-of (mapcat |(string/find-all $ word) ["/" "-" "*"]))))
+    (if (and (= *editor* "helix") word)
+      (max-of (mapcat |(string/find-all $ word) ["/" "-" "*"]))))
 
   (def prefix
     (if break-char-pos (string/slice word 0 (inc break-char-pos))))
@@ -238,16 +242,19 @@
 
   (write-response id result))
 
-(def initialize-result
-  {:capabilities {:textDocumentSync 1
-                  :diagnosticProvider {:interFileDependencies false
-                                       :workspaceDiagnostics false}
-                  :completionProvider {:triggerCharacters ["/" "(" "-" "*"]
-                                       :resolveProvider true}
-                  :signatureHelpProvider {:triggerCharacters [" "]}
-                  :hoverProvider true}
-   :serverInfo {:name "simple-janet-lsp"
-                :version "0.1.0"}})
+(defn initialize [id msg]
+  (set *editor* (get-in msg ["params" "clientInfo" "name"]))
+  (write-response
+    id
+    {:capabilities {:textDocumentSync 1
+                    :diagnosticProvider {:interFileDependencies false
+                                         :workspaceDiagnostics false}
+                    :completionProvider {:triggerCharacters ["/" "(" "-" "*"]
+                                         :resolveProvider true}
+                    :signatureHelpProvider {:triggerCharacters [" "]}
+                    :hoverProvider true}
+     :serverInfo {:name "simple-janet-lsp"
+                  :version "0.1.0"}}))
 
 (defn main [&]
   (def args
@@ -275,7 +282,7 @@
       [:lsp-message msg]
       (let [id (get msg "id")]
         (case (get msg "method")
-          "initialize" (write-response id initialize-result)
+          "initialize" (initialize id msg)
           "textDocument/didOpen" (did-open msg)
           "textDocument/didChange" (did-change msg)
           "textDocument/completion" (completion id msg)
