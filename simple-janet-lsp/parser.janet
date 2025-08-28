@@ -200,7 +200,7 @@
                     ~(group (* "@[" (any :input) "]")))
                  ,(tagged-node :barray))
       :table (/ ,(wrap-position-capture
-                   ~(group (* "@[" (any :input) "]")))
+                   ~(group (* "@{" (any :input) "}")))
                 ,(tagged-node :table))
       :rmform (/ ,(wrap-position-capture
                     ~(group (* ':readermac
