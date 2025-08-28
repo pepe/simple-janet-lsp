@@ -2,7 +2,7 @@ A simple [janet](https://github.com/janet-lang/janet) language server, specificl
 
 [janet-lsp](https://github.com/CFiggers/janet-lsp) already exists, but I wanted to make my own just for fun and to learn more about janet. I've also borrowed some code from janet-lsp.
 
-This server was developed for helix and I haven't tested it with any other editor.
+This server was developed for helix and I haven't really tested it with any other editor. I've tested it a little with nvim and it seems to work.
 
 <table>
   <tr>
