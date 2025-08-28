@@ -4,6 +4,12 @@ A simple [janet](https://github.com/janet-lang/janet) language server, specificl
 
 This server was developed for helix and I haven't tested it with any other editor.
 
+<table>
+  <tr>
+    <td><img src="resources/diagnostics.png" alt="diagnostics" width="500"/></td>
+    <td><img src="resources/completions-and-docs.png" alt="completions and diagnostics" width="500"/></td>
+  </tr>
+</table>
 
 # Installation
 
