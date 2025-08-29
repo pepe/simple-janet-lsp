@@ -11,6 +11,7 @@
 # (def source `(loop [:let [x nil y 10]] x)`)
 # (def source `(loop [:let [my-x nil my-y nil]] (print my))`)
 (def source `(defn my-fn [&named foo] (def bar {:baz foo}))`)
+(def source `(let [@{:foo bar} nil])`)
 (pp (parser/make-tree source))
 (pp (eval/file-warning-check source))
 # (pp (parser/get-syms-at-loc {"character" 42 "line" 0} source))

@@ -84,13 +84,13 @@
                      ,(identifier-node))
       :symbol-parameter (+ :identifier :non-identifier)
 
-      :bdestruct (* "[" (any :ws) (any (* :parameter (any :ws))) "]")
-      :pdestruct (* "(" (any :ws) (any (* :parameter (any :ws))) ")")
+      :bdestruct (* (any "@") "[" (any :ws) (any (* :parameter (any :ws))) "]")
+      :pdestruct (* (any "@") "(" (any :ws) (any (* :parameter (any :ws))) ")")
 
       :table-binding (* (+ :token :string) (any :ws) :parameter (any :ws))
-      :tdestruct (* "{" (any :ws) (any :table-binding) "}")
+      :tdestruct (* (any "@") "{" (any :ws) (any :table-binding) "}")
 
-      :parameter (+ :symbol-parameter :bdestruct :pdestruct :tdestruct)
+      :parameter (+ :bdestruct :pdestruct :tdestruct :symbol-parameter)
       :parameters (any (* :parameter (any :ws)))
 
       # it helps to allow the expression we are assigning to the parameter
