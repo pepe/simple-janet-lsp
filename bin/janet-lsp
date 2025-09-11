@@ -1,0 +1,13 @@
+#!/usr/bin/env janet
+
+(import spork/argparse)
+(import spork/json)
+
+(import simple-janet-lsp/eval)
+(import simple-janet-lsp/log)
+(import simple-janet-lsp/parser)
+(import simple-janet-lsp/utils)
+
+(import simple-janet-lsp)
+
+(simple-janet-lsp/main)

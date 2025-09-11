@@ -9,6 +9,6 @@
   :source ["simple-janet-lsp"])
 
 (declare-binscript
-  :main ["simple-janet-lsp/init.janet"]
-  :hardcode-syspath true
+  :main "bin/janet-lsp"
+  :auto-shebang true
   :is-janet true)
